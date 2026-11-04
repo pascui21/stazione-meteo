@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stazione Meteo Personale & AI</title>
-    <link rel="stylesheet" href="https://unpkg.com" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: #121214; color: #e1e1e6; padding: 20px; display: flex; flex-direction: column; min-height: 100vh; }
@@ -53,11 +53,9 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ATTENZIONE: Sostituisci questo URL con l'indirizzo reale che ti assegna Render.
-        // Ricordati di lasciare "/api/chat" alla fine.
-        const BACKEND_URL = "https://IL_TUO_://onrender.com"; 
+        const BACKEND_URL = "https://stazione-meteo.onrender.com/api/chat";
 
         const map = L.map('map').setView([45.0703, 7.6869], 10);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
