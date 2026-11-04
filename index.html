@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stazione Meteo Personale & AI</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com" />
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: #121214; color: #e1e1e6; padding: 20px; display: flex; flex-direction: column; min-height: 100vh; }
@@ -37,7 +37,7 @@
         <div class="card">
             <h2>🌍 Monitor di Controllo</h2>
             <div class="widget-data" id="widget-temp">--°C</div>
-            <p style="text-align:center; color:#a8a8b3; margin-bottom:15px;" id="widget-summary">In attesa dei dati...</p>
+            <p style="text-align:center; color:#a8a8b3; margin-bottom:15px;" id="widget-summary">Usa la chat per interrogare il meteo...</p>
             <div id="map"></div>
         </div>
 
@@ -53,9 +53,10 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com"></script>
     <script>
-        // Sostituisci questo URL con l'indirizzo reale del tuo server attivo su Render
+        // ATTENZIONE: Sostituisci questo URL con l'indirizzo reale che ti assegna Render.
+        // Ricordati di lasciare "/api/chat" alla fine.
         const BACKEND_URL = "https://IL_TUO_://onrender.com"; 
 
         const map = L.map('map').setView([45.0703, 7.6869], 10);
@@ -81,7 +82,7 @@
                 const data = await response.json();
                 appendMessage(data.reply || data.error, 'ai');
             } catch (e) {
-                appendMessage("Errore di connessione con il backend. Verifica che il server sia attivo su Render.", 'ai');
+                appendMessage("Errore di connessione con il backend. Verifica che il server sia attivo su Render e che l'URL in index.html sia corretto.", 'ai');
             }
         }
 
