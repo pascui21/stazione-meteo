@@ -13,7 +13,7 @@
         .container { display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; width: 100%; flex: 1; }
         @media(min-width: 768px) { .container { grid-template-columns: 1fr 1fr; } }
         .card { background: #1d1d22; border-radius: 12px; padding: 20px; border: 1px solid #29292e; display: flex; flex-direction: column; }
-        #map { height: 300px; border-radius: 8px; margin-top: 10px; background: #202024; }
+        #map { height: 260px; border-radius: 8px; margin-top: 10px; background: #202024; cursor: crosshair; }
         .chat-box { height: 300px; overflow-y: auto; background: #141416; border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #29292e; }
         .msg { padding: 10px 14px; border-radius: 8px; max-width: 80%; word-break: break-word; line-height: 1.4; }
         .user { background: #007acc; color: white; align-self: flex-end; }
@@ -23,7 +23,27 @@
         input:focus { border-color: #4fc3f7; }
         button { background: #007acc; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         button:hover { background: #0062a3; }
-        .widget-data { font-size: 2.5rem; font-weight: bold; margin: 15px 0; color: #4fc3f7; text-align: center; }
+        .quick-cities { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
+        .chip { background: #29292e; color: #e1e1e6; border: 1px solid #3a3a40; padding: 8px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: normal; cursor: pointer; }
+        .chip:hover { background: #343440; }
+        .current-main { display: flex; align-items: center; justify-content: center; gap: 15px; margin: 10px 0; }
+        .current-icon { font-size: 3rem; }
+        .current-temp { font-size: 2.5rem; font-weight: bold; color: #4fc3f7; }
+        .current-name { text-align: center; color: #a8a8b3; margin-bottom: 10px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+        .stat { background: #141416; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid #29292e; }
+        .stat-label { font-size: 0.7rem; color: #808089; text-transform: uppercase; }
+        .stat-value { font-size: 1.1rem; font-weight: bold; margin-top: 4px; }
+        .strip-label { font-size: 0.8rem; color: #808089; margin: 10px 0 6px; text-transform: uppercase; }
+        .hourly-strip, .daily-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+        .hour-card, .day-card { background: #141416; border-radius: 8px; padding: 10px; text-align: center; min-width: 70px; border: 1px solid #29292e; flex-shrink: 0; }
+        .hour-card .time, .day-card .day { font-size: 0.7rem; color: #808089; }
+        .hour-card .icon, .day-card .icon { font-size: 1.4rem; margin: 4px 0; }
+        .hour-card .temp { font-size: 0.9rem; font-weight: bold; }
+        .day-card .range { font-size: 0.8rem; }
+        .day-card .range .max { color: #4fc3f7; font-weight: bold; }
+        .day-card .range .min { color: #808089; }
+        .placeholder-text { text-align: center; color: #a8a8b3; padding: 20px 0; }
     </style>
 </head>
 <body>
@@ -36,8 +56,16 @@
     <div class="container">
         <div class="card">
             <h2>Monitor di Controllo</h2>
-            <div class="widget-data" id="widget-temp">--C</div>
-            <p style="text-align:center; color:#a8a8b3; margin-bottom:15px;" id="widget-summary">Usa la chat per interrogare il meteo...</p>
+            <div class="quick-cities">
+                <button class="chip" data-city="torino">Torino</button>
+                <button class="chip" data-city="milano">Milano</button>
+                <button class="chip" data-city="roma">Roma</button>
+                <button class="chip" data-city="napoli">Napoli</button>
+                <button class="chip" id="geo-btn">Posizione</button>
+            </div>
+            <div id="weather-panel">
+                <p class="placeholder-text" id="placeholder-text">Scegli una citta, clicca sulla mappa o usa la chat per vedere il meteo...</p>
+            </div>
             <div id="map"></div>
         </div>
 
@@ -55,7 +83,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const BACKEND_URL = "https://stazione-meteo.onrender.com/api/chat";
+        const BACKEND_URL = "https://stazione-meteo.onrender.com";
 
         const map = L.map('map').setView([45.0703, 7.6869], 10);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -63,20 +91,119 @@
         }).addTo(map);
         let marker = L.marker([45.0703, 7.6869]).addTo(map).bindPopup('Stazione Meteo').openPopup();
 
-        function updateWidget(weather) {
+        function weatherEmoji(summary) {
+                        if (!summary) return String.fromCodePoint(127777);
+            const s = summary.toLowerCase();
+            if (s.indexOf('thunder') !== -1 || s.indexOf('storm') !== -1) return String.fromCodePoint(9928);
+            if (s.indexOf('snow') !== -1) return String.fromCodePoint(10052);
+            if (s.indexOf('rain') !== -1 || s.indexOf('shower') !== -1 || s.indexOf('drizzle') !== -1) return String.fromCodePoint(127783);
+            if (s.indexOf('fog') !== -1 || s.indexOf('mist') !== -1 || s.indexOf('haze') !== -1) return String.fromCodePoint(127787);
+            if (s.indexOf('overcast') !== -1) return String.fromCodePoint(9729);
+            if (s.indexOf('cloud') !== -1) return String.fromCodePoint(9925);
+            if (s.indexOf('clear') !== -1 || s.indexOf('sun') !== -1) return String.fromCodePoint(9728);
+            return String.fromCodePoint(127777);
+        }
+
+        function formatHour(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '';
+            return d.getHours().toString().padStart(2, '0') + ':00';
+        }
+
+        function formatDay(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleDateString('it-IT', { weekday: 'short' });
+        }
+
+        function renderWeather(weather) {
             if (!weather) return;
-            if (typeof weather.temperature === 'number') {
-                document.getElementById('widget-temp').textContent = Math.round(weather.temperature) + 'C';
-            }
-            const summaryParts = [weather.name, weather.summary].filter(Boolean);
-            document.getElementById('widget-summary').textContent = summaryParts.join(' - ');
 
             if (typeof weather.lat === 'number' && typeof weather.lon === 'number') {
                 map.setView([weather.lat, weather.lon], 10);
                 marker.setLatLng([weather.lat, weather.lon]);
                 marker.bindPopup(weather.name || 'Localita').openPopup();
             }
+
+            const c = weather.current || {};
+            const hourlyItems = weather.hourly || [];
+            const hourlyHtml = hourlyItems.map(function(h) {
+                return '<div class="hour-card"><div class="time">' + formatHour(h.time) + '</div><div class="icon">' + weatherEmoji(h.summary) + '</div><div class="temp">' + (h.temperature != null ? Math.round(h.temperature) + 'C' : '--') + '</div></div>';
+            }).join('');
+
+            const dailyItems = weather.daily || [];
+            const dailyHtml = dailyItems.map(function(d) {
+                return '<div class="day-card"><div class="day">' + formatDay(d.day) + '</div><div class="icon">' + weatherEmoji(d.summary) + '</div><div class="range"><span class="max">' + (d.max != null ? Math.round(d.max) + 'C' : '--') + '</span> / <span class="min">' + (d.min != null ? Math.round(d.min) + 'C' : '--') + '</span></div></div>';
+            }).join('');
+
+            const panel = document.getElementById('weather-panel');
+            panel.innerHTML =
+                '<div class="current-name">' + (weather.name || '') + '</div>' +
+                '<div class="current-main"><div class="current-icon">' + weatherEmoji(c.summary) + '</div><div class="current-temp">' + (c.temperature != null ? Math.round(c.temperature) + 'C' : '--') + '</div></div>' +
+                '<div class="current-name">' + (c.summary || '') + '</div>' +
+                '<div class="stats-grid">' +
+                '<div class="stat"><div class="stat-label">Percepita</div><div class="stat-value">' + (c.feelsLike != null ? Math.round(c.feelsLike) + 'C' : '--') + '</div></div>' +
+                '<div class="stat"><div class="stat-label">Umidita</div><div class="stat-value">' + (c.humidity != null ? c.humidity + '%' : '--') + '</div></div>' +
+                '<div class="stat"><div class="stat-label">Vento</div><div class="stat-value">' + (c.windSpeed != null ? Math.round(c.windSpeed) + 'km/h' : '--') + '</div></div>' +
+                '<div class="stat"><div class="stat-label">Pressione</div><div class="stat-value">' + (c.pressure != null ? Math.round(c.pressure) + 'hPa' : '--') + '</div></div>' +
+                '<div class="stat"><div class="stat-label">UV</div><div class="stat-value">' + (c.uvIndex != null ? c.uvIndex : '--') + '</div></div>' +
+                '<div class="stat"><div class="stat-label">Direzione</div><div class="stat-value">' + (c.windDir || '--') + '</div></div>' +
+                '</div>' +
+                '<div class="strip-label">Prossime ore</div>' +
+                '<div class="hourly-strip">' + (hourlyHtml || '<span class="placeholder-text">Nessun dato</span>') + '</div>' +
+                '<div class="strip-label">Prossimi giorni</div>' +
+                '<div class="daily-strip">' + (dailyHtml || '<span class="placeholder-text">Nessun dato</span>') + '</div>';
         }
+
+        function showPanelError(text) {
+            document.getElementById('weather-panel').innerHTML = '<p class="placeholder-text">' + text + '</p>';
+        }
+
+        async function loadWeatherByCity(city) {
+            showPanelError('Caricamento in corso...');
+            try {
+                const response = await fetch(BACKEND_URL + '/api/weather?place=' + encodeURIComponent(city));
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Errore sconosciuto');
+                renderWeather(data);
+            } catch (e) {
+                showPanelError('Impossibile recuperare il meteo per ' + city + '.');
+            }
+        }
+
+        async function loadWeatherByCoords(lat, lon) {
+            showPanelError('Caricamento in corso...');
+            try {
+                const response = await fetch(BACKEND_URL + '/api/weather?lat=' + lat + '&lon=' + lon);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Errore sconosciuto');
+                renderWeather(data);
+            } catch (e) {
+                showPanelError('Impossibile recuperare il meteo per questa posizione.');
+            }
+        }
+
+        document.querySelectorAll('.chip[data-city]').forEach(function(btn) {
+            btn.addEventListener('click', function() { loadWeatherByCity(btn.dataset.city); });
+        });
+
+        document.getElementById('geo-btn').addEventListener('click', function() {
+            if (!navigator.geolocation) {
+                showPanelError('Geolocalizzazione non supportata dal browser.');
+                return;
+            }
+            showPanelError('Individuazione posizione in corso...');
+            navigator.geolocation.getCurrentPosition(
+                function(pos) { loadWeatherByCoords(pos.coords.latitude, pos.coords.longitude); },
+                function() { showPanelError('Impossibile ottenere la posizione.'); }
+            );
+        });
+
+        map.on('click', function(e) {
+            loadWeatherByCoords(e.latlng.lat, e.latlng.lng);
+        });
 
         async function sendMessage() {
             const input = document.getElementById('user-input');
@@ -87,14 +214,14 @@
             input.value = '';
 
             try {
-                const response = await fetch(BACKEND_URL, {
+                const response = await fetch(BACKEND_URL + '/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: text })
                 });
                 const data = await response.json();
                 appendMessage(data.reply || data.error, 'ai');
-                updateWidget(data.weather);
+                if (data.weather) renderWeather(data.weather);
             } catch (e) {
                 appendMessage("Errore di connessione con il backend. Verifica che il server sia attivo su Render e che l'URL in index.html sia corretto.", 'ai');
             }
