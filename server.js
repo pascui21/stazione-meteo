@@ -13,9 +13,10 @@ app.use(express.static(__dirname));
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+// Il piano Free di Meteosource supporta solo language=en
 async function resolvePlaceId(cityName) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
-  const url = `https://www.meteosource.com/api/v1/free/find_places?text=${encodeURIComponent(cityName)}&language=it&key=${apiKey}`;
+  const url = `https://www.meteosource.com/api/v1/free/find_places?text=${encodeURIComponent(cityName)}&key=${apiKey}`;
   const response = await fetch(url);
   if (!response.ok) {
     const body = await response.text();
@@ -29,7 +30,7 @@ async function resolvePlaceId(cityName) {
 async function fetchMeteosourceForecast(cityName) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
   const placeId = await resolvePlaceId(cityName);
-  const url = `https://www.meteosource.com/api/v1/free/point?place_id=${placeId}&sections=current,hourly&language=it&units=metric&key=${apiKey}`;
+  const url = `https://www.meteosource.com/api/v1/free/point?place_id=${placeId}&sections=current,hourly&units=metric&key=${apiKey}`;
   const response = await fetch(url);
   if (!response.ok) {
     const body = await response.text();
@@ -57,7 +58,10 @@ app.post('/api/chat', async (req, res) => {
       }
     }];
 
-    const messages = [{ role: 'user', content: message }];
+    const messages = [
+      { role: 'system', content: 'Rispondi sempre in italiano, anche se i dati meteo ricevuti sono in inglese.' },
+      { role: 'user', content: message }
+    ];
 
     let chatCompletion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
@@ -88,7 +92,7 @@ app.post('/api/chat', async (req, res) => {
             console.error("Errore Meteosource:", apiError.message);
             messages.push({
               tool_call_id: toolCall.id,
-              role: "tool",
+              role: "tool",import express from 'express';
               name: "get_weather_forecast",
               content: JSON.stringify({ error: "Impossibile recuperare i dati meteo per questa localita." })
             });
