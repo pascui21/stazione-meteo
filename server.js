@@ -87,7 +87,7 @@ async function fetchPoint(options) {
 function buildWeatherSummary(name, lat, lon, data) {
   const current = data.current || {};
   const hourlyData = (data.hourly && data.hourly.data) ? data.hourly.data : [];
-  const hourly = hourlyData.slice(0, 8).map(h => ({
+    const hourly = hourlyData.slice(0, 24).map(h => ({
     time: h.date,
     temperature: h.temperature,
     summary: h.weather
