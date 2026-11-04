@@ -17,7 +17,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 // Funzione interna per chiamare l'API REST di Meteosource in modo sicuro
 async function fetchMeteosourceForecast(placeId) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
-  const url = `https://www.meteosource.com/api/v1/free/point?place_id=${placeId}&sections=current,forecast&language=it&units=metric&key=${apiKey}`;
+  const url = `https://www.meteosource.com/api/v1/free/point?place_id=${placeId}&sections=current,hourly&language=it&units=metric&key=${apiKey}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Meteosource API error: ${response.statusText}`);
   return await response.json();
@@ -75,6 +75,7 @@ app.post('/api/chat', async (req, res) => {
               content: JSON.stringify(weatherData)
             });
           } catch (apiError) {
+            console.error("Errore Meteosource:", apiError);
             messages.push({
               tool_call_id: toolCall.id,
               role: "tool",
