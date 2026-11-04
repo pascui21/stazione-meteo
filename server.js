@@ -14,9 +14,21 @@ app.use(express.static(__dirname));
 // Inizializza l'interfaccia Groq usando la chiave d'ambiente caricata su Render
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Funzione interna per chiamare l'API REST di Meteosource in modo sicuro
-async function fetchMeteosourceForecast(placeId) {
+// Risolve il nome di una città nel place_id richiesto da Meteosource
+async function resolvePlaceId(cityName) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
+  const url = `https://www.meteosource.com/api/v1/free/find_places?text=${encodeURIComponent(cityName)}&language=it&key=${apiKey}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Meteosource find_places error: ${response.statusText}`);
+  const places = await response.json();
+  if (!places.length) throw new Error(`Nessuna località trovata per "${cityName}"`);
+  return places[0].place_id;
+}
+
+// Funzione interna per chiamare l'API REST di Meteosource in modo sicuro
+async function fetchMeteosourceForecast(cityName) {
+  const apiKey = process.env.METEOSOURCE_API_KEY;
+  const placeId = await resolvePlaceId(cityName);
   const url = `https://www.meteosource.com/api/v1/free/point?place_id=${placeId}&sections=current,hourly&language=it&units=metric&key=${apiKey}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Meteosource API error: ${response.statusText}`);
