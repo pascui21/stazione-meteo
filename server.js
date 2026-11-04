@@ -26,11 +26,31 @@ function capitalize(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Riprova le chiamate a Meteosource in caso di errori di rete o 5xx transitori
+async function fetchWithRetry(url, retries = 2, delayMs = 600) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (response.ok || response.status < 500) return response;
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < retries) await wait(delayMs);
+  }
+  throw lastError;
+}
+
 // Il piano Free di Meteosource supporta solo language=en
 async function resolvePlace(cityName) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
   const url = `https://www.meteosource.com/api/v1/free/find_places?text=${encodeURIComponent(cityName)}&key=${apiKey}`;
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Meteosource find_places error ${response.status}: ${body}`);
@@ -44,7 +64,7 @@ async function fetchMeteosourceForecast(cityName) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
   const place = await resolvePlace(cityName);
   const url = `https://www.meteosource.com/api/v1/free/point?place_id=${place.place_id}&sections=current,hourly&units=metric&key=${apiKey}`;
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Meteosource point error ${response.status}: ${body}`);
