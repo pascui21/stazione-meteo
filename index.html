@@ -30,7 +30,7 @@
         .current-icon { font-size: 3rem; }
         .current-temp { font-size: 2.5rem; font-weight: bold; color: #4fc3f7; }
         .current-name { text-align: center; color: #a8a8b3; margin-bottom: 10px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0; }
         .stat { background: #141416; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid #29292e; }
         .stat-label { font-size: 0.7rem; color: #808089; text-transform: uppercase; }
         .stat-value { font-size: 1.1rem; font-weight: bold; margin-top: 4px; }
@@ -92,7 +92,7 @@
         let marker = L.marker([45.0703, 7.6869]).addTo(map).bindPopup('Stazione Meteo').openPopup();
 
         function weatherEmoji(summary) {
-                        if (!summary) return String.fromCodePoint(127777);
+            if (!summary) return String.fromCodePoint(127777);
             const s = summary.toLowerCase();
             if (s.indexOf('thunder') !== -1 || s.indexOf('storm') !== -1) return String.fromCodePoint(9928);
             if (s.indexOf('snow') !== -1) return String.fromCodePoint(10052);
@@ -144,12 +144,10 @@
                 '<div class="current-main"><div class="current-icon">' + weatherEmoji(c.summary) + '</div><div class="current-temp">' + (c.temperature != null ? Math.round(c.temperature) + 'C' : '--') + '</div></div>' +
                 '<div class="current-name">' + (c.summary || '') + '</div>' +
                 '<div class="stats-grid">' +
-                '<div class="stat"><div class="stat-label">Percepita</div><div class="stat-value">' + (c.feelsLike != null ? Math.round(c.feelsLike) + 'C' : '--') + '</div></div>' +
-                '<div class="stat"><div class="stat-label">Umidita</div><div class="stat-value">' + (c.humidity != null ? c.humidity + '%' : '--') + '</div></div>' +
                 '<div class="stat"><div class="stat-label">Vento</div><div class="stat-value">' + (c.windSpeed != null ? Math.round(c.windSpeed) + 'km/h' : '--') + '</div></div>' +
-                '<div class="stat"><div class="stat-label">Pressione</div><div class="stat-value">' + (c.pressure != null ? Math.round(c.pressure) + 'hPa' : '--') + '</div></div>' +
-                '<div class="stat"><div class="stat-label">UV</div><div class="stat-value">' + (c.uvIndex != null ? c.uvIndex : '--') + '</div></div>' +
                 '<div class="stat"><div class="stat-label">Direzione</div><div class="stat-value">' + (c.windDir || '--') + '</div></div>' +
+                '<div class="stat"><div class="stat-label">Nuvolosita</div><div class="stat-value">' + (c.cloudCover != null ? c.cloudCover + '%' : '--') + '</div></div>' +
+                '<div class="stat"><div class="stat-label">Pioggia</div><div class="stat-value">' + (c.precipitation != null ? c.precipitation + 'mm/h' : '--') + '</div></div>' +
                 '</div>' +
                 '<div class="strip-label">Prossime ore</div>' +
                 '<div class="hourly-strip">' + (hourlyHtml || '<span class="placeholder-text">Nessun dato</span>') + '</div>' +
