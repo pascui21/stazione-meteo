@@ -29,22 +29,22 @@
 <body>
 
     <header>
-        <h1>🛰️ Stazione Meteo Digitale</h1>
+        <h1>Stazione Meteo Digitale</h1>
         <p>Widget, Mappe Live e Assistente Virtuale Groq</p>
     </header>
 
     <div class="container">
         <div class="card">
-            <h2>🌍 Monitor di Controllo</h2>
-            <div class="widget-data" id="widget-temp">--°C</div>
+            <h2>Monitor di Controllo</h2>
+            <div class="widget-data" id="widget-temp">--C</div>
             <p style="text-align:center; color:#a8a8b3; margin-bottom:15px;" id="widget-summary">Usa la chat per interrogare il meteo...</p>
             <div id="map"></div>
         </div>
 
         <div class="card">
-            <h2>💬 Assistente Meteo Smart</h2>
+            <h2>Assistente Meteo Smart</h2>
             <div class="chat-box" id="chat-box">
-                <div class="msg ai">Ciao! Sono il tuo meteorologo personale. Chiedimi che tempo fa in qualsiasi città!</div>
+                <div class="msg ai">Ciao! Sono il tuo meteorologo personale. Chiedimi che tempo fa in qualsiasi citta!</div>
             </div>
             <div class="chat-input-area">
                 <input type="text" id="user-input" placeholder="Che tempo fa a Torino?" onkeypress="if(event.key==='Enter') sendMessage()">
@@ -59,9 +59,24 @@
 
         const map = L.map('map').setView([45.0703, 7.6869], 10);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
+            attribution: 'OpenStreetMap'
         }).addTo(map);
         let marker = L.marker([45.0703, 7.6869]).addTo(map).bindPopup('Stazione Meteo').openPopup();
+
+        function updateWidget(weather) {
+            if (!weather) return;
+            if (typeof weather.temperature === 'number') {
+                document.getElementById('widget-temp').textContent = Math.round(weather.temperature) + 'C';
+            }
+            const summaryParts = [weather.name, weather.summary].filter(Boolean);
+            document.getElementById('widget-summary').textContent = summaryParts.join(' - ');
+
+            if (typeof weather.lat === 'number' && typeof weather.lon === 'number') {
+                map.setView([weather.lat, weather.lon], 10);
+                marker.setLatLng([weather.lat, weather.lon]);
+                marker.bindPopup(weather.name || 'Localita').openPopup();
+            }
+        }
 
         async function sendMessage() {
             const input = document.getElementById('user-input');
@@ -79,6 +94,7 @@
                 });
                 const data = await response.json();
                 appendMessage(data.reply || data.error, 'ai');
+                updateWidget(data.weather);
             } catch (e) {
                 appendMessage("Errore di connessione con il backend. Verifica che il server sia attivo su Render e che l'URL in index.html sia corretto.", 'ai');
             }
