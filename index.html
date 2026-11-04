@@ -3,44 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>La Mia Stazione Meteo</title>
+    <title>Stazione Meteo Personale & AI</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
-        .weather-card { background: white; max-width: 350px; margin: 20px auto; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
-        .temp { font-size: 3rem; font-weight: bold; color: #1a73e8; margin: 10px 0; }
-        .summary { text-transform: capitalize; color: #5f6368; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #121214; color: #e1e1e6; padding: 20px; display: flex; flex-direction: column; min-height: 100vh; }
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { color: #4fc3f7; font-size: 1.8rem; }
+        .container { display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; width: 100%; flex: 1; }
+        @media(min-width: 768px) { .container { grid-template-columns: 1fr 1fr; } }
+        .card { background: #1d1d22; border-radius: 12px; padding: 20px; border: 1px solid #29292e; display: flex; flex-direction: column; }
+        #map { height: 300px; border-radius: 8px; margin-top: 10px; background: #202024; }
+        .chat-box { height: 300px; overflow-y: auto; background: #141416; border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #29292e; }
+        .msg { padding: 10px 14px; border-radius: 8px; max-width: 80%; word-break: break-word; line-height: 1.4; }
+        .user { background: #007acc; color: white; align-self: flex-end; }
+        .ai { background: #29292e; color: #e1e1e6; align-self: flex-start; }
+        .chat-input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #29292e; background: #141416; color: white; outline: none; }
+        input:focus { border-color: #4fc3f7; }
+        button { background: #007acc; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #0062a3; }
+        .widget-data { font-size: 2.5rem; font-weight: bold; margin: 15px 0; color: #4fc3f7; text-align: center; }
     </style>
 </head>
 <body>
 
-    <div class="weather-card">
-        <h2 id="location">Caricamento...</h2>
-        <div class="temp" id="temperature">--°C</div>
-        <div class="summary" id="summary">Attendere prego</div>
+    <header>
+        <h1>🛰️ Stazione Meteo Digitale</h1>
+        <p>Widget, Mappe Live e Assistente Virtuale Groq</p>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>🌍 Monitor di Controllo</h2>
+            <div class="widget-data" id="widget-temp">--°C</div>
+            <p style="text-align:center; color:#a8a8b3; margin-bottom:15px;" id="widget-summary">In attesa dei dati...</p>
+            <div id="map"></div>
+        </div>
+
+        <div class="card">
+            <h2>💬 Assistente Meteo Smart</h2>
+            <div class="chat-box" id="chat-box">
+                <div class="msg ai">Ciao! Sono il tuo meteorologo personale. Chiedimi che tempo fa in qualsiasi città!</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="user-input" placeholder="Che tempo fa a Torino?" onkeypress="if(event.key==='Enter') sendMessage()">
+                <button onclick="sendMessage()">Invia</button>
+            </div>
+        </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Sostituisci con la tua chiave Meteosource e l'ID della tua città (es. torino, milano, roma)
-        const API_KEY = "LA_TUA_METEOSOURCE_API_KEY"; 
-        const PLACE_ID = "torino"; 
+        // Sostituisci questo URL con l'indirizzo reale del tuo server attivo su Render
+        const BACKEND_URL = "https://IL_TUO_://onrender.com"; 
 
-        async function getMeteo() {
-            const url = `https://meteosource.com{PLACE_ID}&sections=current&language=en&units=metric&key=${API_KEY}`;
-            
+        const map = L.map('map').setView([45.0703, 7.6869], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+        let marker = L.marker([45.0703, 7.6869]).addTo(map).bindPopup('Stazione Meteo').openPopup();
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            appendMessage(text, 'user');
+            input.value = '';
+
             try {
-                const response = await fetch(url);
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
                 const data = await response.json();
-                
-                document.getElementById('location').innerText = PLACE_ID.toUpperCase();
-                document.getElementById('temperature').innerText = `${Math.round(data.current.temperature)}°C`;
-                document.getElementById('summary').innerText = data.current.summary;
-            } catch (error) {
-                console.error("Errore nel recupero dei dati meteo:", error);
-                document.getElementById('summary').innerText = "Impossibile caricare i dati";
+                appendMessage(data.reply || data.error, 'ai');
+            } catch (e) {
+                appendMessage("Errore di connessione con il backend. Verifica che il server sia attivo su Render.", 'ai');
             }
         }
 
-        getMeteo();
+        function appendMessage(text, sender) {
+            const box = document.getElementById('chat-box');
+            const msg = document.createElement('div');
+            msg.className = `msg ${sender}`;
+            msg.innerText = text;
+            box.appendChild(msg);
+            box.scrollTop = box.scrollHeight;
+        }
     </script>
 </body>
 </html>
