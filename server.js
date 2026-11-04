@@ -1,10 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import Groq from 'groq-sdk';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(__dirname));
 
 // Inizializza l'interfaccia Groq usando la chiave d'ambiente caricata su Render
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -12,7 +17,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 // Funzione interna per chiamare l'API REST di Meteosource in modo sicuro
 async function fetchMeteosourceForecast(placeId) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
-  const url = `https://meteosource.com{placeId}&sections=current,forecasts&language=it&units=metric&key=${apiKey}`;
+  const url = `https://www.meteosource.com/api/v1/free/point?place_id=${placeId}&sections=current,forecast&language=it&units=metric&key=${apiKey}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Meteosource API error: ${response.statusText}`);
   return await response.json();
@@ -42,7 +47,7 @@ app.post('/api/chat', async (req, res) => {
 
     // 2. Chiamata iniziale a Groq per analizzare l'intento dell'utente
     let chatCompletion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-specdec",
+      model: "llama-3.3-70b-versatile",
       messages: messages,
       tools: tools,
       tool_choice: "auto"
@@ -57,7 +62,7 @@ app.post('/api/chat', async (req, res) => {
       for (const toolCall of responseMessage.tool_calls) {
         if (toolCall.function.name === "get_weather_forecast") {
           const args = JSON.parse(toolCall.function.arguments);
-          
+
           try {
             // Esegue la chiamata all'API di Meteosource usando la chiave protetta
             const weatherData = await fetchMeteosourceForecast(args.place_id);
@@ -82,7 +87,7 @@ app.post('/api/chat', async (req, res) => {
 
       // 4. Seconda chiamata a Groq per generare la risposta finale testuale in italiano
       const secondCompletion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-specdec",
+        model: "llama-3.3-70b-versatile",
         messages: messages
       });
 
