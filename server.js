@@ -55,7 +55,8 @@ async function resolvePlace(cityName) {
   }
   const places = await response.json();
   if (!places.length) throw new Error(`Nessuna localita trovata per ${cityName}`);
-  return places[0];
+  const italianPlace = places.find(function(p) { return p.country === 'Italy'; });
+  return italianPlace || places[0];
 }
 
 async function resolveNearestPlace(lat, lon) {
