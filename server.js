@@ -47,7 +47,7 @@ app.post('/api/chat', async (req, res) => {
 
     // 2. Chiamata iniziale a Groq per analizzare l'intento dell'utente
     let chatCompletion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: messages,
       tools: tools,
       tool_choice: "auto"
@@ -87,7 +87,7 @@ app.post('/api/chat', async (req, res) => {
 
       // 4. Seconda chiamata a Groq per generare la risposta finale testuale in italiano
       const secondCompletion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: messages
       });
 
