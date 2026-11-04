@@ -92,7 +92,7 @@ app.post('/api/chat', async (req, res) => {
             console.error("Errore Meteosource:", apiError.message);
             messages.push({
               tool_call_id: toolCall.id,
-              role: "tool",import express from 'express';
+              role: "tool",
               name: "get_weather_forecast",
               content: JSON.stringify({ error: "Impossibile recuperare i dati meteo per questa localita." })
             });
