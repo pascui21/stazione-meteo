@@ -96,9 +96,7 @@ function buildWeatherSummary(name, lat, lon, data) {
     day: d.day,
     summary: d.weather,
     min: d.all_day ? d.all_day.temperature_min : null,
-    max: d.all_day ? d.all_day.temperature_max : null,
-    sunrise: (d.astro && d.astro.sun) ? d.astro.sun.rise : null,
-    sunset: (d.astro && d.astro.sun) ? d.astro.sun.set : null
+    max: d.all_day ? d.all_day.temperature_max : null
   }));
 
   return {
@@ -107,13 +105,11 @@ function buildWeatherSummary(name, lat, lon, data) {
     lon: lon,
     current: {
       temperature: current.temperature != null ? current.temperature : null,
-      feelsLike: current.feels_like != null ? current.feels_like : null,
       summary: current.summary || null,
-      humidity: current.humidity != null ? current.humidity : null,
       windSpeed: current.wind ? current.wind.speed : null,
       windDir: current.wind ? current.wind.dir : null,
-      pressure: current.pressure != null ? current.pressure : null,
-      uvIndex: current.uv_index != null ? current.uv_index : null
+      cloudCover: current.cloud_cover != null ? current.cloud_cover : null,
+      precipitation: current.precipitation ? current.precipitation.total : null
     },
     hourly: hourly,
     daily: daily
