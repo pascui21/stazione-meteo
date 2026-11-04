@@ -30,7 +30,6 @@ function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Riprova le chiamate a Meteosource in caso di errori di rete o 5xx transitori
 async function fetchWithRetry(url, retries = 2, delayMs = 600) {
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -46,7 +45,6 @@ async function fetchWithRetry(url, retries = 2, delayMs = 600) {
   throw lastError;
 }
 
-// Il piano Free di Meteosource supporta solo language=en
 async function resolvePlace(cityName) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
   const url = `https://www.meteosource.com/api/v1/free/find_places?text=${encodeURIComponent(cityName)}&key=${apiKey}`;
@@ -60,18 +58,100 @@ async function resolvePlace(cityName) {
   return places[0];
 }
 
-async function fetchMeteosourceForecast(cityName) {
+async function resolveNearestPlace(lat, lon) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
-  const place = await resolvePlace(cityName);
-  const url = `https://www.meteosource.com/api/v1/free/point?place_id=${place.place_id}&sections=current,hourly&units=metric&key=${apiKey}`;
+  const url = `https://www.meteosource.com/api/v1/free/nearest_place?lat=${lat}&lon=${lon}&key=${apiKey}`;
+  try {
+    const response = await fetchWithRetry(url);
+    if (!response.ok) return null;
+    const place = await response.json();
+    return Array.isArray(place) ? place[0] : place;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function fetchPoint(options) {
+  const apiKey = process.env.METEOSOURCE_API_KEY;
+  const locationQuery = options.placeId ? `place_id=${options.placeId}` : `lat=${options.lat}&lon=${options.lon}`;
+  const url = `https://www.meteosource.com/api/v1/free/point?${locationQuery}&sections=current,hourly,daily&units=metric&key=${apiKey}`;
   const response = await fetchWithRetry(url);
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Meteosource point error ${response.status}: ${body}`);
   }
-  const data = await response.json();
-  return { place, data };
+  return await response.json();
 }
+
+function buildWeatherSummary(name, lat, lon, data) {
+  const current = data.current || {};
+  const hourlyData = (data.hourly && data.hourly.data) ? data.hourly.data : [];
+  const hourly = hourlyData.slice(0, 8).map(h => ({
+    time: h.date,
+    temperature: h.temperature,
+    summary: h.weather
+  }));
+  const dailyData = (data.daily && data.daily.data) ? data.daily.data : [];
+  const daily = dailyData.slice(0, 5).map(d => ({
+    day: d.day,
+    summary: d.weather,
+    min: d.all_day ? d.all_day.temperature_min : null,
+    max: d.all_day ? d.all_day.temperature_max : null,
+    sunrise: (d.astro && d.astro.sun) ? d.astro.sun.rise : null,
+    sunset: (d.astro && d.astro.sun) ? d.astro.sun.set : null
+  }));
+
+  return {
+    name: name,
+    lat: lat,
+    lon: lon,
+    current: {
+      temperature: current.temperature != null ? current.temperature : null,
+      feelsLike: current.feels_like != null ? current.feels_like : null,
+      summary: current.summary || null,
+      humidity: current.humidity != null ? current.humidity : null,
+      windSpeed: current.wind ? current.wind.speed : null,
+      windDir: current.wind ? current.wind.dir : null,
+      pressure: current.pressure != null ? current.pressure : null,
+      uvIndex: current.uv_index != null ? current.uv_index : null
+    },
+    hourly: hourly,
+    daily: daily
+  };
+}
+
+async function getWeatherByCity(cityName) {
+  const place = await resolvePlace(cityName);
+  const data = await fetchPoint({ placeId: place.place_id });
+  return buildWeatherSummary(capitalize(cityName), parseCoord(place.lat), parseCoord(place.lon), data);
+}
+
+async function getWeatherByCoords(lat, lon) {
+  const data = await fetchPoint({ lat: lat, lon: lon });
+  const nearest = await resolveNearestPlace(lat, lon);
+  const name = (nearest && nearest.name) ? nearest.name : (lat.toFixed(2) + ', ' + lon.toFixed(2));
+  return buildWeatherSummary(name, lat, lon, data);
+}
+
+app.get('/api/weather', async (req, res) => {
+  try {
+    const place = req.query.place;
+    const lat = req.query.lat;
+    const lon = req.query.lon;
+    let weather;
+    if (place) {
+      weather = await getWeatherByCity(place);
+    } else if (lat && lon) {
+      weather = await getWeatherByCoords(parseFloat(lat), parseFloat(lon));
+    } else {
+      return res.status(400).json({ error: 'Specifica place oppure lat e lon.' });
+    }
+    res.json(weather);
+  } catch (error) {
+    console.error('Errore /api/weather:', error.message);
+    res.status(502).json({ error: 'Impossibile recuperare i dati meteo per questa localita.' });
+  }
+});
 
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
@@ -115,21 +195,14 @@ app.post('/api/chat', async (req, res) => {
           const args = JSON.parse(toolCall.function.arguments);
 
           try {
-            const { place, data } = await fetchMeteosourceForecast(args.place_id);
-
-            widgetWeather = {
-              name: capitalize(args.place_id),
-              lat: parseCoord(place.lat),
-              lon: parseCoord(place.lon),
-              temperature: data.current ? data.current.temperature : null,
-              summary: data.current ? data.current.summary : null
-            };
+            const weather = await getWeatherByCity(args.place_id);
+            widgetWeather = weather;
 
             messages.push({
               tool_call_id: toolCall.id,
               role: "tool",
               name: "get_weather_forecast",
-              content: JSON.stringify(data)
+              content: JSON.stringify(weather)
             });
           } catch (apiError) {
             console.error("Errore Meteosource:", apiError.message);
