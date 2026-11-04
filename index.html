@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Mia Stazione Meteo</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .weather-card { background: white; max-width: 350px; margin: 20px auto; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        .temp { font-size: 3rem; font-weight: bold; color: #1a73e8; margin: 10px 0; }
+        .summary { text-transform: capitalize; color: #5f6368; }
+    </style>
+</head>
+<body>
+
+    <div class="weather-card">
+        <h2 id="location">Caricamento...</h2>
+        <div class="temp" id="temperature">--°C</div>
+        <div class="summary" id="summary">Attendere prego</div>
+    </div>
+
+    <script>
+        // Sostituisci con la tua chiave Meteosource e l'ID della tua città (es. torino, milano, roma)
+        const API_KEY = "LA_TUA_METEOSOURCE_API_KEY"; 
+        const PLACE_ID = "torino"; 
+
+        async function getMeteo() {
+            const url = `https://meteosource.com{PLACE_ID}&sections=current&language=en&units=metric&key=${API_KEY}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                document.getElementById('location').innerText = PLACE_ID.toUpperCase();
+                document.getElementById('temperature').innerText = `${Math.round(data.current.temperature)}°C`;
+                document.getElementById('summary').innerText = data.current.summary;
+            } catch (error) {
+                console.error("Errore nel recupero dei dati meteo:", error);
+                document.getElementById('summary').innerText = "Impossibile caricare i dati";
+            }
+        }
+
+        getMeteo();
+    </script>
+</body>
+</html>
