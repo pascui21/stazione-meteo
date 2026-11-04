@@ -12,7 +12,7 @@
         h1 { color: #4fc3f7; font-size: 1.8rem; }
         .container { display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; width: 100%; flex: 1; }
         @media(min-width: 768px) { .container { grid-template-columns: 1fr 1fr; } }
-                .card { background: #1d1d22; border-radius: 12px; padding: 20px; border: 1px solid #29292e; display: flex; flex-direction: column; min-width: 0; }
+        .card { background: #1d1d22; border-radius: 12px; padding: 20px; border: 1px solid #29292e; display: flex; flex-direction: column; min-width: 0; }
         #map { height: 260px; border-radius: 8px; margin-top: 10px; background: #202024; cursor: crosshair; }
         .chat-box { height: 300px; overflow-y: auto; background: #141416; border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #29292e; }
         .msg { padding: 10px 14px; border-radius: 8px; max-width: 80%; word-break: break-word; line-height: 1.4; }
@@ -26,6 +26,8 @@
         .quick-cities { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
         .chip { background: #29292e; color: #e1e1e6; border: 1px solid #3a3a40; padding: 8px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: normal; cursor: pointer; }
         .chip:hover { background: #343440; }
+        .chip.active { background: #007acc; border-color: #007acc; color: white; }
+        .map-controls { display: flex; gap: 8px; margin: 10px 0 8px; }
         .current-main { display: flex; align-items: center; justify-content: center; gap: 15px; margin: 10px 0; }
         .current-icon { font-size: 3rem; }
         .current-temp { font-size: 2.5rem; font-weight: bold; color: #4fc3f7; }
@@ -59,12 +61,17 @@
             <div class="quick-cities">
                 <button class="chip" data-city="torino">Torino</button>
                 <button class="chip" data-city="milano">Milano</button>
-                                <button class="chip" data-city="rome">Roma</button>
+                <button class="chip" data-city="rome">Roma</button>
                 <button class="chip" data-city="napoli">Napoli</button>
                 <button class="chip" id="geo-btn">Posizione</button>
             </div>
             <div id="weather-panel">
                 <p class="placeholder-text" id="placeholder-text">Scegli una citta, clicca sulla mappa o usa la chat per vedere il meteo...</p>
+            </div>
+            <div class="map-controls">
+                <button class="chip active" id="map-btn" onclick="setBaseLayer(false)">Mappa</button>
+                <button class="chip" id="satellite-btn" onclick="setBaseLayer(true)">Satellite</button>
+                <button class="chip" id="radar-btn" onclick="toggleRadar()">Radar</button>
             </div>
             <div id="map"></div>
         </div>
@@ -86,10 +93,67 @@
         const BACKEND_URL = "https://stazione-meteo.onrender.com";
 
         const map = L.map('map').setView([45.0703, 7.6869], 10);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: 'OpenStreetMap'
         }).addTo(map);
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Esri, Maxar, Earthstar Geographics'
+        });
+        let usingSatellite = false;
+        let radarLayer = null;
+        let radarFrames = [];
+        let radarHost = '';
         let marker = L.marker([45.0703, 7.6869]).addTo(map).bindPopup('Stazione Meteo').openPopup();
+
+        function setBaseLayer(satellite) {
+            if (satellite === usingSatellite) return;
+            if (satellite) {
+                map.removeLayer(osmLayer);
+                satelliteLayer.addTo(map);
+            } else {
+                map.removeLayer(satelliteLayer);
+                osmLayer.addTo(map);
+            }
+            usingSatellite = satellite;
+            document.getElementById('map-btn').classList.toggle('active', !satellite);
+            document.getElementById('satellite-btn').classList.toggle('active', satellite);
+        }
+
+        async function ensureRadarFrames() {
+            if (radarFrames.length) return radarFrames;
+            try {
+                const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+                const data = await res.json();
+                radarHost = data.host || 'https://tilecache.rainviewer.com';
+                const past = (data.radar && data.radar.past) ? data.radar.past : [];
+                radarFrames = past;
+                return radarFrames;
+            } catch (e) {
+                return [];
+            }
+        }
+
+        async function toggleRadar() {
+            const btn = document.getElementById('radar-btn');
+            if (radarLayer) {
+                map.removeLayer(radarLayer);
+                radarLayer = null;
+                btn.classList.remove('active');
+                btn.textContent = 'Radar';
+                return;
+            }
+            btn.textContent = 'Caricamento...';
+            const frames = await ensureRadarFrames();
+            btn.textContent = 'Radar';
+            if (!frames.length) return;
+            const last = frames[frames.length - 1];
+            radarLayer = L.tileLayer(radarHost + last.path + '/256/{z}/{x}/{y}/2/1_1.png', {
+                opacity: 0.65,
+                attribution: 'RainViewer'
+            });
+            radarLayer.addTo(map);
+            btn.classList.add('active');
+        }
 
         function weatherEmoji(summary) {
             if (!summary) return String.fromCodePoint(127777);
