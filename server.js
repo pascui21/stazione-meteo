@@ -11,27 +11,30 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Inizializza l'interfaccia Groq usando la chiave d'ambiente caricata su Render
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Risolve il nome di una città nel place_id richiesto da Meteosource
 async function resolvePlaceId(cityName) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
   const url = `https://www.meteosource.com/api/v1/free/find_places?text=${encodeURIComponent(cityName)}&language=it&key=${apiKey}`;
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`Meteosource find_places error: ${response.statusText}`);
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Meteosource find_places error ${response.status}: ${body}`);
+  }
   const places = await response.json();
-  if (!places.length) throw new Error(`Nessuna località trovata per "${cityName}"`);
+  if (!places.length) throw new Error(`Nessuna localita trovata per ${cityName}`);
   return places[0].place_id;
 }
 
-// Funzione interna per chiamare l'API REST di Meteosource in modo sicuro
 async function fetchMeteosourceForecast(cityName) {
   const apiKey = process.env.METEOSOURCE_API_KEY;
   const placeId = await resolvePlaceId(cityName);
   const url = `https://www.meteosource.com/api/v1/free/point?place_id=${placeId}&sections=current,hourly&language=it&units=metric&key=${apiKey}`;
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`Meteosource API error: ${response.statusText}`);
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Meteosource point error ${response.status}: ${body}`);
+  }
   return await response.json();
 }
 
@@ -39,16 +42,15 @@ app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
 
   try {
-    // 1. Specifica la funzione (Tool) che il modello Groq può decidere di chiamare
     const tools = [{
       type: "function",
       function: {
         name: "get_weather_forecast",
-        description: "Ottiene le previsioni meteo attuali e future per una specifica città o località.",
+        description: "Ottiene le previsioni meteo attuali e future per una specifica citta o localita.",
         parameters: {
           type: "object",
           properties: {
-            place_id: { type: "string", description: "Il nome della città scritto interamente in minuscolo (es. milano, torino, roma, napoli)" }
+            place_id: { type: "string", description: "Il nome della citta scritto interamente in minuscolo (es. milano, torino, roma, napoli)" }
           },
           required: ["place_id"]
         }
@@ -57,7 +59,6 @@ app.post('/api/chat', async (req, res) => {
 
     const messages = [{ role: 'user', content: message }];
 
-    // 2. Chiamata iniziale a Groq per analizzare l'intento dell'utente
     let chatCompletion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
       messages: messages,
@@ -67,7 +68,6 @@ app.post('/api/chat', async (req, res) => {
 
     const responseMessage = chatCompletion.choices[0].message;
 
-    // 3. Se l'IA ha rilevato la necessità di usare la funzione meteo
     if (responseMessage.tool_calls) {
       messages.push(responseMessage);
 
@@ -76,10 +76,8 @@ app.post('/api/chat', async (req, res) => {
           const args = JSON.parse(toolCall.function.arguments);
 
           try {
-            // Esegue la chiamata all'API di Meteosource usando la chiave protetta
             const weatherData = await fetchMeteosourceForecast(args.place_id);
 
-            // Restituisce i dati strutturati a Groq
             messages.push({
               tool_call_id: toolCall.id,
               role: "tool",
@@ -87,18 +85,17 @@ app.post('/api/chat', async (req, res) => {
               content: JSON.stringify(weatherData)
             });
           } catch (apiError) {
-            console.error("Errore Meteosource:", apiError);
+            console.error("Errore Meteosource:", apiError.message);
             messages.push({
               tool_call_id: toolCall.id,
               role: "tool",
               name: "get_weather_forecast",
-              content: JSON.stringify({ error: "Impossibile recuperare i dati meteo per questa località." })
+              content: JSON.stringify({ error: "Impossibile recuperare i dati meteo per questa localita." })
             });
           }
         }
       }
 
-      // 4. Seconda chiamata a Groq per generare la risposta finale testuale in italiano
       const secondCompletion = await groq.chat.completions.create({
         model: "openai/gpt-oss-120b",
         messages: messages
@@ -107,12 +104,11 @@ app.post('/api/chat', async (req, res) => {
       return res.json({ reply: secondCompletion.choices[0].message.content });
     }
 
-    // Se l'utente ha fatto una domanda generica che non richiede dati meteo
     res.json({ reply: responseMessage.content });
 
   } catch (error) {
     console.error("Errore generato dal server:", error);
-    res.status(500).json({ error: 'Errore interno durante l\'elaborazione della richiesta con Groq.' });
+    res.status(500).json({ error: 'Errore interno durante elaborazione della richiesta con Groq.' });
   }
 });
 
