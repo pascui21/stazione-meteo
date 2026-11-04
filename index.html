@@ -149,6 +149,7 @@
             const last = frames[frames.length - 1];
             radarLayer = L.tileLayer(radarHost + last.path + '/256/{z}/{x}/{y}/2/1_1.png', {
                 opacity: 0.65,
+                maxNativeZoom: 7,
                 attribution: 'RainViewer'
             });
             radarLayer.addTo(map);
